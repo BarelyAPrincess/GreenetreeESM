@@ -1,0 +1,30 @@
+apply plugin: 'java'
+apply plugin: 'eclipse'
+
+sourceCompatibility = 1.7
+version = '1.0'
+jar
+{
+	manifest
+	{
+		attributes 'Implementation-Title': 'Greenetree ESM', 'Implementation-Version': version
+	}
+}
+
+repositories
+{ mavenCentral() }
+
+dependencies
+{
+	compile group: 'commons-collections', name: 'commons-collections', version: '3.2'
+	compile group: 'commons-codec', name: 'commons-codec', version: '1.8'
+	compile group: 'io.netty', name: 'netty-all', version: '5.0.0.Alpha2'
+	compile group: 'com.google.guava', name: 'guava', version: '17.0'
+}
+
+uploadArchives
+{
+	repositories
+	{ flatDir { dirs 'repos'
+		} }
+}
