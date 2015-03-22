@@ -388,6 +388,7 @@ public class TestSslHandler extends ByteToMessageDecoder
 				}
 				
 				SSLEngineResult result = wrap( alloc, engine, buf, out );
+				
 				if ( !buf.isReadable() )
 				{
 					promise = pendingUnencryptedWrites.remove();
@@ -396,8 +397,6 @@ public class TestSslHandler extends ByteToMessageDecoder
 				{
 					promise = null;
 				}
-				
-				System.out.println( "Consumed: " + result.bytesConsumed() + " / " + result.bytesProduced() );
 				
 				if ( result.getStatus() == Status.CLOSED )
 				{
@@ -454,15 +453,6 @@ public class TestSslHandler extends ByteToMessageDecoder
 			out.release();
 			out = Unpooled.EMPTY_BUFFER;
 		}
-		
-		System.out.print( "Out data (" + out.readableBytes() + "): " );
-		while ( out.readableBytes() > 0 )
-		{
-			System.out.print( String.format( "%02X ", out.readByte() ) );
-		}
-		System.out.println( "" );
-		
-		out.setIndex( 0, 0 );
 		
 		if ( promise != null )
 		{
@@ -572,8 +562,7 @@ public class TestSslHandler extends ByteToMessageDecoder
 				if ( ! ( in instanceof CompositeByteBuf ) && in.nioBufferCount() == 1 )
 				{
 					in0 = singleBuffer;
-					// We know its only backed by 1 ByteBuffer so use internalNioBuffer to keep object allocation
-					// to a minimum.
+					// We know its only backed by 1 ByteBuffer so use internalNioBuffer to keep object allocation to a minimum.
 					in0[0] = in.internalNioBuffer( readerIndex, readableBytes );
 				}
 				else

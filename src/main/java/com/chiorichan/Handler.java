@@ -24,6 +24,10 @@ import javax.net.ssl.SSLEngine;
 
 import org.apache.commons.codec.DecoderException;
 import org.apache.commons.codec.binary.Hex;
+import org.apache.commons.lang3.ArrayUtils;
+
+import com.chiorichan.packet.Packet;
+import com.sun.org.apache.xml.internal.security.utils.Base64;
 
 /**
  * @author Chiori Greene
@@ -54,6 +58,8 @@ public class Handler extends SimpleChannelInboundHandler<Object>
 			engine.setEnabledCipherSuites( new String[] {"SSL_RSA_WITH_RC4_128_SHA", "SSL_RSA_WITH_RC4_128_MD5"} );
 			
 			ctx.pipeline().addFirst( "ssl", new TestSslHandler( engine ) );
+			
+			// ctx.pipeline().addFirst( new Tester( "POST" ) );
 			
 			TimerTask task = new TimerTask()
 			{
@@ -87,42 +93,43 @@ public class Handler extends SimpleChannelInboundHandler<Object>
 				i++;
 			}
 			
-			String hex = Hex.encodeHexString( content ).toLowerCase();
+			Packet revd = Packet.decode( content );
 			
-			System.out.println( "RCVD: " + hex );
 			
-			// 01 00 0c 00 08 00 00 00 0b 01 06 04 70 69 6e 67 -- Heartbeat?
+			
 			if ( hex.equals( "01000c00080000000b01060470696e67" ) ) // Ping Heartbeat
 			{
-				// 01 00 0c 00 08 00 00 00 0b 01 06 04 70 6f 6e 67 -- Pong!
-				writeHex( "01 00 0c 00 08 00 00 00 0b 01 06 04 70 6f 6e 67" );
+				write( new Packet( "pong" ).encode() );
 			}
-			else if ( hex.startsWith( "01001a00160000000b0306057e4c47494e030000000000" ) )
+			else if ( hex.startsWith( "01001a00160000000b0306057e4c47494e" ) )
 			{
-				// 01 00 72 00 6e 00 00 00 0b 03 06 01 65 03 00 00 00 00 00 98 9a c0 0b 02 06 0b 6c 6f 67 69 6e 50 61 72 61 6d 73 09 0a 41 73 73 6f 63 41 72 72 61 79 06 08 2a 64 65 66 61 75 6c 74 02 06 1b 64 65 66 61 75 6c 74 41 75 74
-				// 68 65 6e 74 69 63 61 74 69 6f 6e 4d 65 74 68 6f 64 06 05 4d 61 72 63 68 06 0c 77 61 72 6e 49 6e 61 63 74 69 76 65 08 06 04 2a 65 6e 64 0a 01 00 2a 00 26 00 00 00 0b 03 06 01 65 03 00 00 00 00 00 9c 9a c0 0b 02 06 0d
-				// 61 75 74 68 65 6e 74 69 63 61 74 6f 72 06 05 4d 61 72 63 68
-				writeHex( "01 00 72 00 6e 00 00 00 0b 03 06 01 65 03 00 00 00 00 00 98 9a c0 0b 02 06 0b 6c 6f 67 69 6e 50 61 72 61 6d 73 09 0a 41 73 73 6f 63 41 72 72 61 79 06 08 2a 64 65 66 61 75 6c 74 02 06 1b 64 65 66 61 75 6c 74 41 75 74 68 65 6e 74 69 63 61 74 69 6f 6e 4d 65 74 68 6f 64 06 05 4d 61 72 63 68 06 0c 77 61 72 6e 49 6e 61 63 74 69 76 65 08 06 04 2a 65 6e 64 0a 01 00 2a 00 26 00 00 00 0b 03 06 01 65 03 00 00 00 00 00 9c 9a c0 0b 02 06 0d 61 75 74 68 65 6e 74 69 63 61 74 6f 72 06 05 4d 61 72 63 68" );
+				String id1 = hex.substring( 34, 34 + 22 );
+				String id2 = hex.substring( 94, 94 + 24 );
+				
+				String response = "010072006e0000000b03060165" + id1 + "060b6c6f67696e506172616d73090a4173736f63417272617906082a64656661756c7402061b64656661756c7441757468656e7469636174696f6e4d6574686f6406054d61726368060c7761726e496e6163746976650806042a656e640a01002a00260000000b03060165" + id2 + "0d61757468656e74696361746f7206054d61726368";
+				
+				System.out.println( "SENT: " + response );
+				System.out.println( "ID1: " + id1 );
+				System.out.println( "ID2: " + id2 );
+				
+				writeHex( response );
 			}
-			
-			// TYPE? COMMAND! REPEAT DELIM USER END
-			// 01001a00160000000b030605 7e4c47494e030000000000 989ac00b0 20202010020001c0000000b030605 7e4c47494e030000000000 9c9ac00b 0206 0561646d696e 02
-			// 01001a00160000000b030605 7e4c47494e030000000000 449cc00b0 20202010020001c0000000b030605 7e4c47494e030000000000 489cc00b 0206 0561646d696e 02
-			// 01001a00160000000b030605 7e4c47494e030000000000 4c9cc00b0 20202010020001c0000000b030605 7e4c47494e030000000000 509cc00b 0206 0561646d696e 02
-			
-			// 01000c00080000000b010604 70696e67
 		}
 	}
 	
 	public void writeHex( String s ) throws DecoderException
 	{
-		write( Hex.decodeHex( s.replaceAll( " ", "" ).toCharArray() ) );
+		write( ArrayUtils.addAll( Hex.decodeHex( s.replaceAll( " ", "" ).toCharArray() ), CRLF ) );
 	}
+	
+	private static final byte CR = 13;
+	private static final byte LF = 10;
+	private static final byte[] CRLF = {CR, LF};
 	
 	public void write( byte[] msg )
 	{
-		context.writeAndFlush( context.alloc().buffer().writeBytes( msg ) );
-		// context.flush();
+		context.write( Unpooled.copiedBuffer( msg ) );
+		context.flush();
 	}
 	
 	public void write( String msg )

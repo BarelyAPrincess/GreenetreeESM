@@ -9,8 +9,6 @@ package com.chiorichan;
 import io.netty.channel.ChannelInitializer;
 import io.netty.channel.ChannelPipeline;
 import io.netty.channel.socket.SocketChannel;
-import io.netty.handler.codec.http.HttpContentCompressor;
-import io.netty.handler.codec.http.HttpResponseEncoder;
 import io.netty.handler.logging.LogLevel;
 import io.netty.handler.logging.LoggingHandler;
 
@@ -26,8 +24,7 @@ public class Initializer extends ChannelInitializer<SocketChannel>
 		ChannelPipeline p = ch.pipeline();
 		
 		p.addLast( "decoder", new Decoder() );
-		p.addLast( "encoder", new HttpResponseEncoder() );
-		//p.addLast( "deflater", new HttpContentCompressor() );
+		p.addLast( "encoder", new Encoder() );
 		
 		p.addLast( new LoggingHandler( LogLevel.INFO ) );
 		

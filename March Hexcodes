@@ -1,0 +1,59 @@
+>>> Login Commands
+S1 L1   L2   XX     DT DL CS CL CD - ~LGIN IS ID               PT ML VU
+01 001a 0016 000000 0b 03 06 05 7e4c47494e 03 00000000004c9cc1 0b 02 0202 -- Login Detail Request
+
+S1 L1   L2   XX     DT DL CS CL CD - ?     IS ID               PT PL KS ML VU - loginParams       KT ML VU - AssocArray      KS ML VU - *default    NV KS ML VU - defaultAuthenticationMethod                       KS ML VU - March KS ML VU - warnInactive        BV KS ML VU - *end
+01 0072 006e 000000 0b 03 06 01 65         03 00000000004c9cc1 0b 02 06 0b 6c6f67696e506172616d73 09 0a 4173736f634172726179 06 08 2a64656661756c74 02 06 1b 64656661756c7441757468656e7469636174696f6e4d6574686f64 06 05 4d61726368 06 0c 7761726e496e616374697665 08 06 04 2a656e64 0a
+
+S1 L1   L2   XX     DT DL CS CL CD - ~LGIN IS ID               PT PL KS ML VU - admin XX
+01 0020 001c 000000 0b 03 06 05 7e4c47494e 03 0000000000509cc0 0b 02 06 05 61646d696e 02
+
+S1 L1   L2   XX     DT DL CS CL CD - ?     IS ID               PT PL KS ML VU - authenticator         KS KL VU - March
+01 002a 0026 000000 0b 03 06 01 65         03 0000000000b09ec0 0b 02 06 0d 61757468656e74696361746f72 06 05 4d61726368
+
+S1 L1   L2   XX     DT DL CS CL CD - ~LGIN IS ID               PT PL KS ML VU - admin KS KL VU - (encoded value?)                    KS KL VU - (encoded value?)
+01 004b 0047 000000 0b 03 06 05 7e4c47494e 03 0000000000c49ec0 0b 03 06 05 61646d696e 06 14 a3902f220b1655c6449ef7d0423223308cdfaf86 06 14 f16391113b195e4f5556a7171e11816533d3053c
+
+S1 L1   L2   XX     DT DL CS CL CD - ?     IS ID               PT PL KS ML VU - admin KS KL VU - (encoded value?)                    KS KL VU - (encoded value?)
+01 0043 003f 000000 0b 03 06 01 65         03 0000000000c49ec0 0b 03 06 05 6c6f67696e 06 14 95dde11f47e8603f1fe619b2313ce3c9e743cf84 06 10 0af9f97266d1f031dd01f4e7de0b0c08 -- SUCCESS?
+01 0043 003f 000000 0b 03 06 01 65         03 0000000000c49ec0 0b 03 06 05 6c6f67696e 06 14 0210c8ad18e3e36843be0a0872ebaeadebd8ace6 06 10 0af9f97266d1f031dd01f4e7de0b0c08 -- FAILED?
+
+>>> Misc Commands and Results
+S1 L1   L2   XX     DT DL CS CL CD
+01 000c 0008 000000 0b 01 06 04 70696e67 -- PING
+01 000c 0008 000000 0b 01 06 04 706f6e67 -- PONG
+
+S1 L1   L2   XX     DT DL CS CL CD - ?     IS ID               PT PL KS ML VU - badCommand
+01 0020 001c 000000 0b 03 06 01 65         03 00000000004c9cc0 0b 01 06 0a 626164436f6d6d616e64 -- Bad Command
+
+   26   22          1  1  1  1  1          1  8                1  1  6 = 22
+S1 L1   L2   XX     DT DL CS CL CD - ?     IS ID               PT ML TEXT
+01 001a 0016 000000 0b 03 06 01 65         03 0000000000c49ec0 06 06 6661696c6564 -- Failed Command
+
+*default - Default value for 
+*end - End of array
+
+Anything X or blank is still unknown
+
+S1 seems to be required to start all commands
+L1 seems to stand for some sort of command length, where it's starting this count is unknown since the length has always been 2 over
+L2 is always exactly 4 less then L1 for unknown reason
+DT Data Packet Type
+DL Data Packet Length
+
+PT Payload Type
+PL Payload Length
+
+CS Command Start
+CL Command Length
+CD Command
+
+KS Key
+KT Key Type
+ML Value Length
+VU Value Text
+NV No Value
+BV Boolean Value 08?
+
+IS Start of Command ID
+ID Command ID - 8 bits long
