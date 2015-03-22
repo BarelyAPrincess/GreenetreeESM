@@ -6,8 +6,9 @@
  */
 package com.chiorichan.packet;
 
+import java.nio.ByteBuffer;
+
 /**
- * 
  * @author Chiori Greene
  * @email chiorigreene@gmail.com
  */
@@ -15,8 +16,31 @@ public class PacketException extends Exception
 {
 	private static final long serialVersionUID = 4715655487010741146L;
 	
+	private ByteBuffer buffer = null;
+	
+	public PacketException( String reason, ByteBuffer buffer )
+	{
+		super( reason );
+		this.buffer = buffer;
+	}
+	
 	public PacketException( String reason )
 	{
 		super( reason );
+	}
+	
+	public void putBuffer( ByteBuffer data )
+	{
+		buffer = data;
+	}
+	
+	public String hexDump()
+	{
+		return PacketUtils.hexDump( buffer, buffer.position() );
+	}
+	
+	public boolean hasBuffer()
+	{
+		return buffer != null;
 	}
 }

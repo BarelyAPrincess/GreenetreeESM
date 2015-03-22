@@ -27,6 +27,7 @@ import org.apache.commons.codec.binary.Hex;
 import org.apache.commons.lang3.ArrayUtils;
 
 import com.chiorichan.packet.Packet;
+import com.chiorichan.packet.PacketException;
 
 /**
  * @author Chiori Greene
@@ -73,62 +74,70 @@ public class Handler extends SimpleChannelInboundHandler<Object>
 		}
 		else if ( obj instanceof HttpContent )
 		{
-			HttpContent msg = ( HttpContent ) obj;
-			ByteBuf buf = msg.content();
-			
-			byte[] content = new byte[buf.readableBytes()];
-			
-			int i = 0;
-			while ( buf.readableBytes() > 0 )
+			try
 			{
-				byte b = buf.readByte();
-				content[i] = b;
-				i++;
+				HttpContent msg = ( HttpContent ) obj;
+				ByteBuf buf = msg.content();
+				
+				byte[] content = new byte[buf.readableBytes()];
+				
+				int i = 0;
+				while ( buf.readableBytes() > 0 )
+				{
+					byte b = buf.readByte();
+					content[i] = b;
+					i++;
+				}
+				
+				Packet[] rcvds = Packet.decode( content );
+				
+				for ( Packet rcvd : rcvds )
+				{
+					if ( "ping".equals( rcvd.command() ) )
+					{
+						write( new Packet( "pong" ).encode() );
+					}
+					else if ( "~LGIN".equals( rcvd.command() ) )
+					{
+						// Login Command!
+						
+						Packet resp = new Packet( new byte[] {0x65}, rcvd.packetId() );
+						
+						System.out.println( Hex.encodeHexString( resp.encode() ) );
+						
+						// 689fc00b02060b6c6f67696e506172616d73090a4173736f63417272617906082a64656661756c7402061b64656661756c7441757468656e7469636174696f6e4d6574686f6406054d61726368060c7761726e496e6163746976650806042a656e640a01002a00260000000b030601650300000000006c9fc00b02060d61757468656e74696361746f7206054d61726368
+						
+						write( resp.encode() );
+						
+						/*
+						 * String hex = Hex.encodeHexString( content );
+						 * String id1 = hex.substring( 34, 34 + 22 );
+						 * String id2 = hex.substring( 94, 94 + 24 );
+						 * 
+						 * String response = "010072006e0000000b03060165" + id1 +
+						 * "060b6c6f67696e506172616d73090a4173736f63417272617906082a64656661756c7402061b64656661756c7441757468656e7469636174696f6e4d6574686f6406054d61726368060c7761726e496e6163746976650806042a656e640a01002a00260000000b03060165"
+						 * + id2 + "0d61757468656e74696361746f7206054d61726368";
+						 * 
+						 * System.out.println( "SENT: " + response );
+						 * System.out.println( "ID1: " + id1 );
+						 * System.out.println( "ID2: " + id2 );
+						 * 
+						 * writeHex( response );
+						 */
+					}
+					else
+					{
+						System.out.println( "WARNING: The last packet was not understood" );
+					}
+				}
+				
+				context.flush();
 			}
-			
-			Packet[] rcvds = Packet.decode( content );
-			
-			for ( Packet rcvd : rcvds )
+			catch ( PacketException e )
 			{
-				if ( "ping".equals( rcvd.command() ) )
-				{
-					write( new Packet( "pong" ).encode() );
-				}
-				else if ( "~LGIN".equals( rcvd.command() ) )
-				{
-					// Login Command!
-					
-					Packet resp = new Packet( new byte[] {0x65}, rcvd.packetId() );
-					
-					System.out.println( Hex.encodeHexString( resp.encode() ) );
-					
-					// 689fc00b02060b6c6f67696e506172616d73090a4173736f63417272617906082a64656661756c7402061b64656661756c7441757468656e7469636174696f6e4d6574686f6406054d61726368060c7761726e496e6163746976650806042a656e640a01002a00260000000b030601650300000000006c9fc00b02060d61757468656e74696361746f7206054d61726368
-					
-					write( resp.encode() );
-					
-					/*
-					 * String hex = Hex.encodeHexString( content );
-					 * String id1 = hex.substring( 34, 34 + 22 );
-					 * String id2 = hex.substring( 94, 94 + 24 );
-					 * 
-					 * String response = "010072006e0000000b03060165" + id1 +
-					 * "060b6c6f67696e506172616d73090a4173736f63417272617906082a64656661756c7402061b64656661756c7441757468656e7469636174696f6e4d6574686f6406054d61726368060c7761726e496e6163746976650806042a656e640a01002a00260000000b03060165"
-					 * + id2 + "0d61757468656e74696361746f7206054d61726368";
-					 * 
-					 * System.out.println( "SENT: " + response );
-					 * System.out.println( "ID1: " + id1 );
-					 * System.out.println( "ID2: " + id2 );
-					 * 
-					 * writeHex( response );
-					 */
-				}
-				else
-				{
-					System.out.println( "WARNING: The last packet was not understood" );
-				}
+				System.out.println( e.hexDump() );
+				throw e;
 			}
-			
-			context.flush();
 		}
 	}
 	
