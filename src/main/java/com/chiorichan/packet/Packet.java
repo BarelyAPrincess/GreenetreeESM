@@ -7,8 +7,11 @@
 package com.chiorichan.packet;
 
 import java.nio.ByteBuffer;
+import java.util.List;
 
 import org.apache.commons.codec.binary.Hex;
+
+import com.google.common.collect.Lists;
 
 
 /**
@@ -44,6 +47,11 @@ public class Packet
 			
 			packet.put( cmd );
 		}
+		
+		public String command()
+		{
+			return new String( cmd );
+		}
 	}
 	
 	public class PacketPayload
@@ -56,10 +64,31 @@ public class Packet
 		
 	}
 	
-	public Packet( String cmd )
+	public Packet( byte[] cmd )
+	{
+		this( cmd, null );
+	}
+	
+	public Packet( byte[] cmd, byte[] packetId )
 	{
 		this.cmd = new PacketCommand( cmd );
-		// packetId = PacketUtils.generatePacketId();
+		this.packetId = packetId;
+	}
+	
+	public Packet( String cmd )
+	{
+		this( cmd, null );
+	}
+	
+	public Packet( String cmd, byte[] packetId )
+	{
+		this.cmd = new PacketCommand( cmd );
+		this.packetId = packetId;
+	}
+	
+	public void addPacketId()
+	{
+		packetId = PacketUtils.generatePacketId();
 	}
 	
 	public boolean hasPacketId()
@@ -98,7 +127,8 @@ public class Packet
 		
 		if ( hasPacketId() )
 		{
-			
+			packet.put( ( byte ) 0x03 );
+			packet.put( packetId );
 		}
 		
 		if ( hasPayload() )
@@ -120,14 +150,102 @@ public class Packet
 		return newPacket.array();
 	}
 	
-	public static Packet decode( byte[] data ) throws PacketException
+	private static Packet decode0( byte[] msg ) throws PacketException
 	{
-		if ( data == null )
-			throw new PacketException( "data can't be null" );
+		ByteBuffer data = ByteBuffer.wrap( msg );
 		
+		int dataType = data.get();
+		int dataLen = data.get();
 		
-		// String hex = Hex.encodeHexString( content ).toLowerCase();
+		if ( dataLen > 3 ) // > 3
+			throw new PacketException( "Data over 3 sections is unknown and not supported! " );
 		
-		Packet inital = new Packet();
+		if ( data.get() != ( byte ) 0x06 )
+			throw new PacketException( "Expected the first section, called command" );
+		
+		int cl = data.get();
+		
+		byte[] cmd = new byte[cl];
+		
+		data.get( cmd, 0, cl );
+		
+		Packet inital = new Packet( cmd );
+		
+		if ( dataLen > 1 )
+		{
+			if ( data.position() < data.capacity() )
+			{
+				int idenStart = data.get();
+				
+				if ( idenStart != 0x03 )
+					System.err.println( "WARNING: The next data section was not started properly with 0x03, ignoring." );
+				else
+				{
+					byte[] cmdId = new byte[8];
+					data.get( cmdId, 0, 8 );
+					inital.packetId = cmdId;
+				}
+			}
+			else
+			{
+				System.err.println( "WARNING: The data array ended unexpectedly. We were expecting at least one more section." );
+			}
+		}
+		
+		System.out.println( "Succesfully Decoded Packet: " + inital );
+		
+		return inital;
+	}
+	
+	public static Packet[] decode( byte[] msg ) throws PacketException
+	{
+		List<Packet> packets = Lists.newLinkedList();
+		
+		if ( msg == null )
+			throw new PacketException( "Data can't be null" );
+		
+		if ( msg.length < 10 )
+			throw new PacketException( "Data must be invalid since it does not contain the expected number of fields" );
+		
+		ByteBuffer data = ByteBuffer.wrap( msg );
+		
+		while ( data.position() < data.capacity() )
+		{
+			byte b = data.get();
+			
+			if ( b == ( byte ) 0x01 )
+			{
+				int len1 = data.getShort();
+				int len2 = data.getShort();
+				
+				data.position( data.position() + 3 );
+				
+				byte[] dataRange = new byte[len2];
+				data.get( dataRange, 0, len2 );
+				
+				packets.add( decode0( dataRange ) );
+			}
+		}
+		
+		if ( data.position() < data.capacity() )
+			System.err.println( "Warning: The data array has excess data on the end that was unreadable." );
+		
+		return packets.toArray( new Packet[0] );
+	}
+	
+	public String command()
+	{
+		return ( cmd == null ) ? null : cmd.command();
+	}
+	
+	@Override
+	public String toString()
+	{
+		return "Packet{cmd=" + command() + ",packetId=" + Hex.encodeHexString( packetId ) + "}";
+	}
+	
+	public byte[] packetId()
+	{
+		return packetId;
 	}
 }

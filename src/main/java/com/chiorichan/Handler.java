@@ -27,7 +27,6 @@ import org.apache.commons.codec.binary.Hex;
 import org.apache.commons.lang3.ArrayUtils;
 
 import com.chiorichan.packet.Packet;
-import com.sun.org.apache.xml.internal.security.utils.Base64;
 
 /**
  * @author Chiori Greene
@@ -36,6 +35,7 @@ import com.sun.org.apache.xml.internal.security.utils.Base64;
 public class Handler extends SimpleChannelInboundHandler<Object>
 {
 	private ChannelHandlerContext context;
+	private static final Packet PING_PACKET = new Packet( "ping" );
 	private Timer timer = new Timer( "Heartbeat", true );
 	
 	@Override
@@ -66,14 +66,7 @@ public class Handler extends SimpleChannelInboundHandler<Object>
 				@Override
 				public void run()
 				{
-					try
-					{
-						writeHex( "01 00 0c 00 08 00 00 00 0b 01 06 04 70 69 6e 67" ); // ping!
-					}
-					catch ( DecoderException e )
-					{
-						e.printStackTrace();
-					}
+					write( PING_PACKET.encode() );
 				}
 			};
 			timer.scheduleAtFixedRate( task, 23000l, 30000l );
@@ -93,49 +86,65 @@ public class Handler extends SimpleChannelInboundHandler<Object>
 				i++;
 			}
 			
-			Packet revd = Packet.decode( content );
+			Packet[] rcvds = Packet.decode( content );
 			
-			
-			
-			if ( hex.equals( "01000c00080000000b01060470696e67" ) ) // Ping Heartbeat
+			for ( Packet rcvd : rcvds )
 			{
-				write( new Packet( "pong" ).encode() );
+				if ( "ping".equals( rcvd.command() ) )
+				{
+					write( new Packet( "pong" ).encode() );
+				}
+				else if ( "~LGIN".equals( rcvd.command() ) )
+				{
+					// Login Command!
+					
+					Packet resp = new Packet( new byte[] {0x65}, rcvd.packetId() );
+					
+					System.out.println( Hex.encodeHexString( resp.encode() ) );
+					
+					// 689fc00b02060b6c6f67696e506172616d73090a4173736f63417272617906082a64656661756c7402061b64656661756c7441757468656e7469636174696f6e4d6574686f6406054d61726368060c7761726e496e6163746976650806042a656e640a01002a00260000000b030601650300000000006c9fc00b02060d61757468656e74696361746f7206054d61726368
+					
+					write( resp.encode() );
+					
+					/*
+					 * String hex = Hex.encodeHexString( content );
+					 * String id1 = hex.substring( 34, 34 + 22 );
+					 * String id2 = hex.substring( 94, 94 + 24 );
+					 * 
+					 * String response = "010072006e0000000b03060165" + id1 +
+					 * "060b6c6f67696e506172616d73090a4173736f63417272617906082a64656661756c7402061b64656661756c7441757468656e7469636174696f6e4d6574686f6406054d61726368060c7761726e496e6163746976650806042a656e640a01002a00260000000b03060165"
+					 * + id2 + "0d61757468656e74696361746f7206054d61726368";
+					 * 
+					 * System.out.println( "SENT: " + response );
+					 * System.out.println( "ID1: " + id1 );
+					 * System.out.println( "ID2: " + id2 );
+					 * 
+					 * writeHex( response );
+					 */
+				}
+				else
+				{
+					System.out.println( "WARNING: The last packet was not understood" );
+				}
 			}
-			else if ( hex.startsWith( "01001a00160000000b0306057e4c47494e" ) )
-			{
-				String id1 = hex.substring( 34, 34 + 22 );
-				String id2 = hex.substring( 94, 94 + 24 );
-				
-				String response = "010072006e0000000b03060165" + id1 + "060b6c6f67696e506172616d73090a4173736f63417272617906082a64656661756c7402061b64656661756c7441757468656e7469636174696f6e4d6574686f6406054d61726368060c7761726e496e6163746976650806042a656e640a01002a00260000000b03060165" + id2 + "0d61757468656e74696361746f7206054d61726368";
-				
-				System.out.println( "SENT: " + response );
-				System.out.println( "ID1: " + id1 );
-				System.out.println( "ID2: " + id2 );
-				
-				writeHex( response );
-			}
+			
+			context.flush();
 		}
 	}
 	
 	public void writeHex( String s ) throws DecoderException
 	{
-		write( ArrayUtils.addAll( Hex.decodeHex( s.replaceAll( " ", "" ).toCharArray() ), CRLF ) );
+		write( ArrayUtils.addAll( Hex.decodeHex( s.replaceAll( " ", "" ).toCharArray() ) ) );
 	}
-	
-	private static final byte CR = 13;
-	private static final byte LF = 10;
-	private static final byte[] CRLF = {CR, LF};
 	
 	public void write( byte[] msg )
 	{
 		context.write( Unpooled.copiedBuffer( msg ) );
-		context.flush();
 	}
 	
 	public void write( String msg )
 	{
 		context.write( msg );
-		context.flush();
 	}
 	
 	public void log( String... msgs )
