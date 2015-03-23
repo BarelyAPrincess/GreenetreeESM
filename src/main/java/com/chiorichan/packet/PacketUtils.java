@@ -6,9 +6,10 @@
  */
 package com.chiorichan.packet;
 
+import io.netty.buffer.ByteBuf;
 import io.netty.util.internal.StringUtil;
 
-import java.nio.ByteBuffer;
+import org.apache.commons.codec.binary.Hex;
 
 import com.google.common.base.Strings;
 
@@ -101,12 +102,12 @@ public class PacketUtils
 		return bytes;
 	}
 	
-	public static String hexDump( ByteBuffer buf )
+	public static String hexDump( ByteBuf buf )
 	{
-		return hexDump( buf, buf.position() );
+		return hexDump( buf, buf.readerIndex() );
 	}
 	
-	public static String hexDump( ByteBuffer buf, int highlightIndex )
+	public static String hexDump( ByteBuf buf, int highlightIndex )
 	{
 		if ( buf == null )
 			return "Buffer: null!";
@@ -128,13 +129,13 @@ public class PacketUtils
 		
 		dump.append( NEWLINE + "         +-------------------------------------------------+" + NEWLINE + "         |  0  1  2  3  4  5  6  7  8  9  a  b  c  d  e  f |" + NEWLINE + "+--------+-------------------------------------------------+----------------+" );
 		
-		if ( highlightIndex >= 0 )
+		if ( highlightIndex > 0 )
 		{
 			highlightRow = highlightIndex >>> 4;
-			highlightIndex = highlightIndex - ( 16 * highlightRow );
+			highlightIndex = highlightIndex - ( 16 * highlightRow ) - 1;
 			
-			dump.append( NEWLINE + "|        |" + ( ( highlightIndex > 1 ) ? Strings.repeat( "   ", highlightIndex - 1 ) : "" ) + " $$" + Strings.repeat( "   ", 16 - highlightIndex ) );
-			dump.append( " |" + ( ( highlightIndex > 1 ) ? Strings.repeat( " ", highlightIndex - 1 ) : "" ) + "$" + Strings.repeat( " ", 16 - highlightIndex ) + "|" );
+			dump.append( NEWLINE + "|        |" + Strings.repeat( "   ", highlightIndex ) + " $$" + Strings.repeat( "   ", 15 - highlightIndex ) );
+			dump.append( " |" + Strings.repeat( " ", highlightIndex ) + "$" + Strings.repeat( " ", 15 - highlightIndex ) + "|" );
 		}
 		
 		// Dump the rows which have 16 bytes.
@@ -149,18 +150,18 @@ public class PacketUtils
 			int rowEndIndex = rowStartIndex + 16;
 			for ( int j = rowStartIndex; j < rowEndIndex; j++ )
 			{
-				dump.append( BYTE2HEX[getUnsignedByte( buf, j )] );
+				dump.append( BYTE2HEX[buf.getUnsignedByte( j )] );
 			}
 			dump.append( " |" );
 			
 			// ASCII dump
 			for ( int j = rowStartIndex; j < rowEndIndex; j++ )
 			{
-				dump.append( BYTE2CHAR[getUnsignedByte( buf, j )] );
+				dump.append( BYTE2CHAR[buf.getUnsignedByte( j )] );
 			}
 			dump.append( '|' );
 			
-			if ( highlightIndex >= 0 && highlightRow == row + 1 )
+			if ( highlightIndex > 0 && highlightRow == row + 1 )
 				dump.append( " <--" );
 		}
 		
@@ -174,7 +175,7 @@ public class PacketUtils
 			int rowEndIndex = rowStartIndex + remainder;
 			for ( int j = rowStartIndex; j < rowEndIndex; j++ )
 			{
-				dump.append( BYTE2HEX[getUnsignedByte( buf, j )] );
+				dump.append( BYTE2HEX[buf.getUnsignedByte( j )] );
 			}
 			dump.append( HEXPADDING[remainder] );
 			dump.append( " |" );
@@ -182,23 +183,18 @@ public class PacketUtils
 			// Ascii dump
 			for ( int j = rowStartIndex; j < rowEndIndex; j++ )
 			{
-				dump.append( BYTE2CHAR[getUnsignedByte( buf, j )] );
+				dump.append( BYTE2CHAR[buf.getUnsignedByte( j )] );
 			}
 			dump.append( BYTEPADDING[remainder] );
 			dump.append( '|' );
 			
-			if ( highlightIndex >= 0 && highlightRow > fullRows + 1 )
+			if ( highlightIndex > 0 && highlightRow > fullRows + 1 )
 				dump.append( " <--" );
 		}
 		
 		dump.append( NEWLINE + "+--------+-------------------------------------------------+----------------+" );
 		
 		return dump.toString();
-	}
-	
-	public static short getUnsignedByte( ByteBuffer bb, int position )
-	{
-		return ( ( short ) ( bb.get( position ) & ( short ) 0xff ) );
 	}
 	
 	/**
@@ -217,5 +213,27 @@ public class PacketUtils
 			dump.setCharAt( dump.length() - 9, '|' );
 			dump.append( '|' );
 		}
+	}
+	
+	public static String hex2Readable( int... elements )
+	{
+		byte[] e2 = new byte[elements.length];
+		for ( int i = 0; i < elements.length; i++ )
+			e2[i] = ( byte ) elements[i];
+		return hex2Readable( e2 );
+	}
+	
+	public static String hex2Readable( byte... elements )
+	{
+		// TODO Char Dump
+		String result = "";
+		char[] chars = Hex.encodeHex( elements, true );
+		for ( int i = 0; i < chars.length; i = i + 2 )
+			result += " " + chars[i] + chars[i + 1];
+		
+		if ( result.length() > 0 )
+			result = result.substring( 1 );
+		
+		return result;
 	}
 }

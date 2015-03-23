@@ -30,8 +30,8 @@ S1 L1   L2   XX     DT DL CS CL CD - ?     IS ID               PT PL KS ML VU - 
 S1 L1   L2   XX     DT DL CS CL CD - ?     IS ID               PT ML VU - failed
 01 001a 0016 000000 0b 03 06 01 65         03 0000000000c49ec0 06 06 6661696c6564 -- Failed Command
 
-*default - Default value for 
-*end - End of array
+*default - Default Array Value 
+*end - End of Array
 
 Anything X or blank is still unknown
 

@@ -6,7 +6,7 @@
  */
 package com.chiorichan.packet;
 
-import java.nio.ByteBuffer;
+import io.netty.buffer.ByteBuf;
 
 /**
  * @author Chiori Greene
@@ -16,9 +16,9 @@ public class PacketException extends Exception
 {
 	private static final long serialVersionUID = 4715655487010741146L;
 	
-	private ByteBuffer buffer = null;
+	private ByteBuf buffer = null;
 	
-	public PacketException( String reason, ByteBuffer buffer )
+	public PacketException( String reason, ByteBuf buffer )
 	{
 		super( reason );
 		this.buffer = buffer;
@@ -29,14 +29,14 @@ public class PacketException extends Exception
 		super( reason );
 	}
 	
-	public void putBuffer( ByteBuffer data )
+	public void putBuffer( ByteBuf data )
 	{
 		buffer = data;
 	}
 	
 	public String hexDump()
 	{
-		return PacketUtils.hexDump( buffer, buffer.position() );
+		return PacketUtils.hexDump( buffer, buffer.readerIndex() );
 	}
 	
 	public boolean hasBuffer()

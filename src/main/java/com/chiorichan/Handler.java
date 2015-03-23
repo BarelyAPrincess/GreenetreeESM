@@ -17,6 +17,7 @@ import io.netty.handler.codec.http.HttpContent;
 import io.netty.handler.codec.http.HttpResponseStatus;
 import io.netty.handler.codec.http.HttpVersion;
 
+import java.util.Map;
 import java.util.Timer;
 import java.util.TimerTask;
 
@@ -28,6 +29,9 @@ import org.apache.commons.lang3.ArrayUtils;
 
 import com.chiorichan.packet.Packet;
 import com.chiorichan.packet.PacketException;
+import com.chiorichan.packet.PacketUtils;
+import com.chiorichan.packet.PayloadValue;
+import com.google.common.collect.Maps;
 
 /**
  * @author Chiori Greene
@@ -79,6 +83,14 @@ public class Handler extends SimpleChannelInboundHandler<Object>
 				HttpContent msg = ( HttpContent ) obj;
 				ByteBuf buf = msg.content();
 				
+				if ( buf.readableBytes() < 1 )
+				{
+					System.out.println( "WARNING: Received an empty message!" );
+					return;
+				}
+				
+				Packet[] rcvds = Packet.decode( buf );
+				
 				byte[] content = new byte[buf.readableBytes()];
 				
 				int i = 0;
@@ -88,8 +100,6 @@ public class Handler extends SimpleChannelInboundHandler<Object>
 					content[i] = b;
 					i++;
 				}
-				
-				Packet[] rcvds = Packet.decode( content );
 				
 				for ( Packet rcvd : rcvds )
 				{
@@ -103,11 +113,19 @@ public class Handler extends SimpleChannelInboundHandler<Object>
 						
 						Packet resp = new Packet( new byte[] {0x65}, rcvd.packetId() );
 						
-						System.out.println( Hex.encodeHexString( resp.encode() ) );
+						Map<String, PayloadValue> value = Maps.newLinkedHashMap();
 						
-						// 689fc00b02060b6c6f67696e506172616d73090a4173736f63417272617906082a64656661756c7402061b64656661756c7441757468656e7469636174696f6e4d6574686f6406054d61726368060c7761726e496e6163746976650806042a656e640a01002a00260000000b030601650300000000006c9fc00b02060d61757468656e74696361746f7206054d61726368
+						value.put( "*0", new PayloadValue( "badCommand" ) );
 						
-						write( resp.encode() );
+						resp.setPayload( value );
+						
+						ByteBuf encoded = resp.encode();
+						byte[] out = new byte[encoded.writerIndex()];
+						
+						encoded.readBytes( out, 0, encoded.writerIndex() );
+						System.out.println( PacketUtils.hex2Readable( out ) );
+						
+						write( encoded );
 						
 						/*
 						 * String hex = Hex.encodeHexString( content );
@@ -144,6 +162,11 @@ public class Handler extends SimpleChannelInboundHandler<Object>
 	public void writeHex( String s ) throws DecoderException
 	{
 		write( ArrayUtils.addAll( Hex.decodeHex( s.replaceAll( " ", "" ).toCharArray() ) ) );
+	}
+	
+	public void write( ByteBuf msg )
+	{
+		context.write( msg );
 	}
 	
 	public void write( byte[] msg )

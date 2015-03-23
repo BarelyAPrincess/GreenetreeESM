@@ -6,16 +6,17 @@
  */
 package com.chiorichan.packet;
 
-import java.nio.ByteBuffer;
+import io.netty.buffer.ByteBuf;
+import io.netty.buffer.Unpooled;
+
 import java.util.List;
 import java.util.Map;
-import java.util.Map.Entry;
 
 import org.apache.commons.codec.binary.Hex;
+import org.apache.commons.lang3.Validate;
 
-import com.google.common.base.Joiner;
+import com.chiorichan.packet.PacketPayload.PayloadType;
 import com.google.common.collect.Lists;
-import com.google.common.collect.Maps;
 
 /**
  * @author Chiori Greene
@@ -25,7 +26,7 @@ public class Packet
 {
 	private PacketCommand cmd = null;
 	private byte[] packetId = null;
-	private PacketPayload payload;
+	private PayloadValue payload;
 	
 	public class PacketCommand
 	{
@@ -41,175 +42,18 @@ public class Packet
 			this.cmd = cmd.getBytes();
 		}
 		
-		public void encode( ByteBuffer packet )
+		protected ByteBuf encode()
 		{
-			packet.put( ( byte ) 0x06 );
-			
-			packet.put( ( byte ) cmd.length );
-			
-			packet.put( cmd );
+			ByteBuf buf = Unpooled.buffer();
+			buf.writeByte( ( byte ) 0x06 );
+			buf.writeByte( ( byte ) cmd.length );
+			buf.writeBytes( cmd );
+			return buf;
 		}
 		
 		public String command()
 		{
 			return new String( cmd );
-		}
-	}
-	
-	/**
-	 * Contains values that fail to be held by a map properly
-	 */
-	public enum StaticValues
-	{
-		NULL( null ), TRUE( true ), FALSE( false );
-		
-		Object value;
-		
-		StaticValues( Object value )
-		{
-			this.value = value;
-		}
-		
-		@Override
-		public String toString()
-		{
-			return ( String ) value;
-		}
-		
-		public byte toByte()
-		{
-			if ( this == TRUE )
-				return 0x08; // Need true value;
-			if ( this == FALSE )
-				return 0x07;
-			return 0x00; // NULL
-		}
-		
-		public Object toValue()
-		{
-			return value;
-		}
-	}
-	
-	public class PacketPayload
-	{
-		Map<String, Object> payload = Maps.newConcurrentMap();
-		int keyCounter = 0;
-		String previousKey = null;
-		
-		/**
-		 * AssocArray's will ALWAYS contain a key=value pairing.
-		 */
-		boolean isAssocArray = false;
-		
-		public boolean isAssocArray()
-		{
-			return isAssocArray;
-		}
-		
-		public String previousKey()
-		{
-			if ( previousKey != null )
-			{
-				Object obj = payload.get( previousKey );
-				if ( obj == null || obj == StaticValues.NULL || ( obj instanceof Byte[] && ( ( Byte[] ) obj ).length < 1 ) )
-					return previousKey;
-				else
-					return null; // Don't override previous if not null or empty.
-			}
-			
-			return previousKey;
-		}
-		
-		public PacketPayload putSubload( String key )
-		{
-			return putSubload( key, false );
-		}
-		
-		public PacketPayload putSubload( String key, boolean isAssocArray )
-		{
-			previousKey = key;
-			PacketPayload subload = new PacketPayload();
-			payload.put( key, subload );
-			this.isAssocArray = isAssocArray;
-			return subload;
-		}
-		
-		public void putKey( String data )
-		{
-			putKeyValue( data, StaticValues.NULL );
-		}
-		
-		public void putValue( Object data )
-		{
-			putKeyValue( Integer.toString( keyCounter ), data );
-			keyCounter++;
-		}
-		
-		public void putKeyValue( String key, Object data )
-		{
-			previousKey = key;
-			payload.put( key, data );
-		}
-		
-		public byte[] getBytesAndDrop( String key )
-		{
-			byte[] value = getBytes( key );
-			dropKey( key );
-			return value;
-		}
-		
-		public void dropKey( String key )
-		{
-			payload.remove( key );
-		}
-		
-		public boolean getBool( String key )
-		{
-			Object obj = payload.get( key );
-			
-			if ( obj instanceof StaticValues )
-			{
-				if ( obj == StaticValues.TRUE )
-					return true;
-				else if ( obj == StaticValues.FALSE )
-					return false;
-			}
-			
-			if ( ! ( obj instanceof Boolean ) )
-				return false;
-			
-			return ( Boolean ) obj;
-		}
-		
-		public byte[] getBytes( String key )
-		{
-			Object obj = payload.get( key );
-			
-			if ( ! ( obj instanceof Byte[] ) )
-				return new byte[0];
-			
-			return ( byte[] ) obj;
-		}
-		
-		@Override
-		public String toString()
-		{
-			StringBuilder sb = new StringBuilder();
-			
-			for ( Entry<String, Object> e : payload.entrySet() )
-			{
-				String val = "";
-				Object obj = e.getValue();
-				if ( obj instanceof byte[] )
-					val = Hex.encodeHexString( ( byte[] ) obj );
-				else
-					val = obj.toString();
-				
-				sb.append( "," + e.getKey() + "=" + val );
-			}
-			
-			return "{" + ( ( sb.length() > 0 ) ? sb.toString().substring( 1 ) : "" ) + "}";
 		}
 	}
 	
@@ -266,37 +110,37 @@ public class Packet
 		return ( byte ) p;
 	}
 	
-	public byte[] encode()
+	public ByteBuf encode()
 	{
-		ByteBuffer packet = ByteBuffer.allocate( 256 );
+		ByteBuf packet = Unpooled.buffer();
 		
-		packet.put( countParts() );
+		packet.writeByte( countParts() );
 		
-		cmd.encode( packet );
+		packet.writeBytes( cmd.encode() );
 		
 		if ( hasPacketId() )
 		{
-			packet.put( ( byte ) 0x03 );
-			packet.put( packetId );
+			packet.writeByte( 0x03 );
+			packet.writeBytes( packetId );
 		}
 		
 		if ( hasPayload() )
 		{
-			
+			packet.writeBytes( payload.encode() );
 		}
 		
-		ByteBuffer newPacket = ByteBuffer.allocate( packet.position() + 9 );
+		ByteBuf newPacket = Unpooled.buffer();
 		
-		newPacket.put( ( byte ) 0x01 );
+		newPacket.writeByte( 0x01 );
 		
-		newPacket.putShort( ( short ) ( packet.position() + 5 ) ); // Length + 4
-		newPacket.putShort( ( short ) ( packet.position() + 1 ) ); // Length
+		newPacket.writeShort( ( short ) ( packet.writerIndex() + 5 ) ); // Length + 4
+		newPacket.writeShort( ( short ) ( packet.writerIndex() + 1 ) ); // Length
 		
-		newPacket.put( new byte[] {0x00, 0x00, 0x00, 0x0b} );
+		newPacket.writeBytes( new byte[] {0x00, 0x00, 0x00, 0x0b} );
 		
-		newPacket.put( packet.array(), 0, packet.position() );
+		newPacket.writeBytes( packet );
 		
-		return newPacket.array();
+		return newPacket;
 	}
 	
 	/**
@@ -304,33 +148,33 @@ public class Packet
 	 *            The data to be read from
 	 * @param payload
 	 *            The payload for the data to be written to
-	 * @return true if we seem to have reached the end of the payload
+	 * @return true if we have reached the end of the payload
 	 * @throws PacketException
-	 *             thorwn on several reading errors
+	 *             thrown on several reading errors
 	 */
-	private static boolean readMultipartPayload( ByteBuffer data, PacketPayload payload ) throws PacketException
+	private static boolean readMultipartPayload( ByteBuf data, PacketPayload payload ) throws PacketException
 	{
-		if ( data.position() == data.capacity() )
+		if ( !data.isReadable() )
 			return true;
 		
-		int payloadStart = data.get();
+		int payloadStart = data.readByte();
 		
 		switch ( payloadStart )
 		{
 			case 0x02: // Make Last Key Empty
 			{
-				if ( payload.previousKey() != null )
-					payload.putKeyValue( payload.previousKey(), new byte[0] );
-				else
-					payload.putValue( new byte[0] );
+				// if ( payload.previousKey() != null )
+				// payload.putKeyValue( payload.previousKey(), new byte[0] );
+				// else
+				payload.putValue( PayloadValue.EMPTY );
 				break;
 			}
 			case 0x06:
 			{
-				int payloadLength = data.get();
+				int payloadLength = data.readByte();
 				
 				byte[] value = new byte[payloadLength];
-				data.get( value, 0, payloadLength );
+				data.readBytes( value );
 				
 				if ( new String( value ).startsWith( "*" ) ) // Special
 				{
@@ -338,31 +182,26 @@ public class Packet
 						return true;
 				}
 				
-				if ( payload.isAssocArray )
-					payload.putKeyValue( payload.previousKey(), value );
-				else
-					payload.putKey( new String( value ) );
-				
+				payload.putValue( new PayloadValue( value ) );
 				break;
 			}
 			case 0x08: // Boolean Value? True or False?
 			{
-				payload.putKeyValue( payload.previousKey(), StaticValues.TRUE );
+				payload.putValue( PayloadValue.TRUE );
 				break;
 			}
 			case 0x09:
 			{
-				int payloadLength = data.get();
+				int payloadLength = data.readByte();
 				
 				byte[] value = new byte[payloadLength];
-				data.get( value, 0, payloadLength );
+				data.readBytes( value );
 				
 				switch ( new String( value ) )
 				{
 					case "AssocArray":
 					{
-						payload.dropKey( payload.previousKey() );
-						PacketPayload subload = payload.putSubload( payload.previousKey(), true );
+						PacketPayload subload = payload.putSubload( PayloadType.ASSOC_ARRAY );
 						
 						boolean end = false;
 						do
@@ -385,54 +224,48 @@ public class Packet
 				break;
 			}
 			default:
-				throw new PacketException( "Payload section was not started with the expected 0x06." );
+				throw new PacketException( "Payload section was not started with the expected byte." );
 		}
 		
-		return true;
+		return false;
 	}
 	
-	private static void readSection( ByteBuffer data, Packet packet ) throws PacketException
+	private static void readSection( ByteBuf data, Packet packet ) throws PacketException
 	{
-		if ( data.position() == data.capacity() )
+		if ( !data.isReadable() )
 			throw new PacketException( "SEVERE: The data array ended unexpectedly. We were expecting at least one more section." );
 		
-		int secType = data.get();
+		int secType = data.readByte();
 		
 		switch ( secType )
 		{
 			case 0x03: // PacketId
 			{
 				byte[] cmdId = new byte[8];
-				data.get( cmdId, 0, 8 );
+				data.readBytes( cmdId );
 				packet.packetId = cmdId;
 				break;
 			}
 			case 0x0b: // Multipart Payload
 			{
-				if ( packet.payload == null )
-					packet.payload = packet.new PacketPayload();
+				// XXX Could there be more then just one multipart or string payload?
+				packet.payload = new PacketPayload();
 				
-				int payloadSections = data.get();
+				int payloadSections = data.readByte();
 				
 				for ( int i = 0; i < payloadSections; i++ )
-				{
-					boolean end = readMultipartPayload( data, packet.payload );
-					if ( end )
+					if ( readMultipartPayload( data, ( PacketPayload ) packet.payload ) )
 						break; // TODO check if end was expected.
-				}
-				
+						
 				break;
 			}
 			case 0x06: // String Payload
 			{
-				if ( packet.payload == null )
-					packet.payload = packet.new PacketPayload();
-				
-				int payloadLength = data.get();
+				int payloadLength = data.readByte();
 				
 				byte[] payload = new byte[payloadLength];
-				data.get( payload, 0, payloadLength );
-				packet.payload.putValue( payload );
+				data.readBytes( payload );
+				packet.payload = new PayloadValue( payload );
 				
 				break;
 			}
@@ -441,29 +274,27 @@ public class Packet
 		}
 	}
 	
-	private static Packet decode0( byte[] msg ) throws PacketException
+	private static Packet decode0( ByteBuf data ) throws PacketException
 	{
-		ByteBuffer data = ByteBuffer.wrap( msg );
-		
-		int dataType = data.get();
+		int dataType = data.readByte();
 		
 		if ( dataType != 0x0b )
 			throw new PacketException( "The first byte in the data stream did not start with 0x0b." );
 		
-		int dataLength = data.get();
+		int dataLength = data.readByte();
 		
 		if ( dataLength > 3 ) // > 3
 			throw new PacketException( "Data over 3 sections is not supported." );
 		
-		int cmdType = data.get();
+		int cmdType = data.readByte();
 		
 		if ( cmdType != 0x06 )
 			throw new PacketException( "Expected the 'command' section." );
 		
-		int cmdLength = data.get();
+		int cmdLength = data.readByte();
 		
 		byte[] cmd = new byte[cmdLength];
-		data.get( cmd, 0, cmdLength );
+		data.readBytes( cmd );
 		Packet inital = new Packet( cmd );
 		
 		for ( int i = 1; i < dataLength; i++ )
@@ -474,43 +305,57 @@ public class Packet
 		return inital;
 	}
 	
-	public static Packet[] decode( byte[] msg ) throws PacketException
+	public static Packet[] decode( ByteBuf data ) throws PacketException
 	{
-		if ( msg == null )
-			throw new PacketException( "Data can't be null" );
+		Validate.notNull( data );
 		
-		ByteBuffer data = ByteBuffer.wrap( msg );
+		if ( !data.isReadable() )
+			throw new PacketException( "Data stream is not readable." );
 		
 		try
 		{
 			List<Packet> packets = Lists.newLinkedList();
 			
-			if ( msg.length < 10 )
-				throw new PacketException( "Data must be invalid since it does not contain the expected number of fields" );
-			
-			while ( data.position() < data.capacity() )
+			do
 			{
-				byte b = data.get();
+				int packetStart = data.readByte();
 				
-				if ( b == ( byte ) 0x01 )
+				if ( packetStart == 0x01 )
 				{
-					int len1 = data.getShort();
-					int len2 = data.getShort();
+					int packetLength1 = data.readShort();
+					int packetLength2 = data.readShort();
 					
-					data.position( data.position() + 3 );
+					if ( packetLength1 + 4 == packetLength2 )
+					{
+						// This is valid apparently, don't know why they did this???
+						System.out.println( "NOTICE: packetLength1 did not match packetLength2, don't know why... " + PacketUtils.hex2Readable( packetLength1, packetLength2 ) );
+					}
 					
-					byte[] dataRange = new byte[len2];
-					data.get( dataRange, 0, len2 );
+					int z1 = data.readByte();
+					int z2 = data.readByte();
+					int z3 = data.readByte();
 					
-					packets.add( decode0( dataRange ) );
+					if ( z1 != 0x00 || z2 != 0x00 || z3 != 0x00 )
+					{
+						// Still not sure what these three bits are used for, but they are always 0x00.
+						System.out.println( "NOTICE: z1, z2, or z3 were not 0x00, don't know why... " + Hex.encodeHexString( new byte[] {( byte ) z1, ( byte ) z2, ( byte ) z3} ) );
+					}
+					
+					packets.add( decode0( data.readBytes( packetLength2 ) ) );
+				}
+				else
+				{
+					data.readerIndex( data.readerIndex() - 1 );
+					break;
 				}
 			}
+			while ( data.isReadable() );
 			
-			if ( data.position() < data.capacity() )
+			if ( data.isReadable() )
 			{
-				byte[] tmp = new byte[data.capacity() - data.position()];
-				data.get( tmp, 0, data.capacity() - data.position() );
-				System.err.println( "Warning: The data array has excess data on the end that was unreadable. Excess: " + Hex.encodeHexString( tmp ) );
+				byte[] tmp = new byte[data.readableBytes()];
+				data.readBytes( tmp );
+				System.err.println( "Warning: The data array has excess data that was not readable. Excess: " + PacketUtils.hex2Readable( tmp ) );
 			}
 			
 			return packets.toArray( new Packet[0] );
@@ -531,11 +376,21 @@ public class Packet
 	@Override
 	public String toString()
 	{
-		return "Packet{cmd=" + command() + ",packetId=" + Hex.encodeHexString( packetId ) + ",payload=" + payload + "}";
+		return "Packet{cmd=" + command() + ",packetId=" + PacketUtils.hex2Readable( packetId ) + ",payload=" + payload + "}";
 	}
 	
 	public byte[] packetId()
 	{
 		return packetId;
+	}
+	
+	public void setPayload( String payload )
+	{
+		this.payload = new PayloadValue( payload );
+	}
+	
+	public void setPayload( Map<String, PayloadValue> payload )
+	{
+		this.payload = new PacketPayload( payload );
 	}
 }
