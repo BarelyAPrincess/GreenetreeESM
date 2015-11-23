@@ -16,22 +16,17 @@ import io.netty.handler.codec.http.FullHttpResponse;
 import io.netty.handler.codec.http.HttpContent;
 import io.netty.handler.codec.http.HttpResponseStatus;
 import io.netty.handler.codec.http.HttpVersion;
+import io.netty.handler.ssl.SslHandshakeCompletionEvent;
 
-import java.util.Map;
+import java.io.UnsupportedEncodingException;
+import java.net.URLDecoder;
 import java.util.Timer;
-import java.util.TimerTask;
 
 import javax.net.ssl.SSLEngine;
 
-import org.apache.commons.codec.DecoderException;
-import org.apache.commons.codec.binary.Hex;
-import org.apache.commons.lang3.ArrayUtils;
-
 import com.chiorichan.packet.Packet;
 import com.chiorichan.packet.PacketException;
-import com.chiorichan.packet.PacketUtils;
-import com.chiorichan.packet.PayloadValue;
-import com.google.common.collect.Maps;
+import com.google.common.base.Charsets;
 
 /**
  * @author Chiori Greene
@@ -39,17 +34,64 @@ import com.google.common.collect.Maps;
  */
 public class Handler extends SimpleChannelInboundHandler<Object>
 {
-	private ChannelHandlerContext context;
-	private static final Packet PING_PACKET = new Packet( "ping" );
 	private Timer timer = new Timer( "Heartbeat", true );
+	private boolean ssl;
+	private ServerMessageBus bus;
+	private String url;
+	
+	public Handler( boolean ssl )
+	{
+		this.ssl = ssl;
+	}
+	
+	@Override
+	public void channelInactive( ChannelHandlerContext ctx )
+	{
+		timer.cancel();
+		if ( bus != null && bus.client() != null )
+			bus.client().disconnect();
+	}
+	
+	public String getUri( String uri )
+	{
+		try
+		{
+			uri = URLDecoder.decode( uri, Charsets.UTF_8.name() );
+		}
+		catch ( UnsupportedEncodingException e )
+		{
+			try
+			{
+				uri = URLDecoder.decode( uri, Charsets.ISO_8859_1.name() );
+			}
+			catch ( UnsupportedEncodingException e1 )
+			{
+				e1.printStackTrace();
+			}
+		}
+		catch ( IllegalArgumentException e1 )
+		{
+			
+		}
+		
+		if ( uri.contains( "?" ) )
+			uri = uri.substring( 0, uri.indexOf( "?" ) );
+		
+		if ( !uri.startsWith( "/" ) )
+			uri = "/" + uri;
+		
+		return uri;
+	}
 	
 	@Override
 	protected void messageReceived( ChannelHandlerContext ctx, Object obj ) throws Exception
 	{
 		if ( obj instanceof DefaultHttpRequest )
 		{
+			DefaultHttpRequest request = ( ( DefaultHttpRequest ) obj );
+			url = getUri( request.uri() );
+			
 			FullHttpResponse response = new DefaultFullHttpResponse( HttpVersion.HTTP_1_0, HttpResponseStatus.valueOf( 200 ), Unpooled.copiedBuffer( new byte[0] ) );
-			context = ctx;
 			
 			response.headers().add( "Content-Type", "application/octet-stream" );
 			
@@ -57,29 +99,23 @@ public class Handler extends SimpleChannelInboundHandler<Object>
 			ctx.write( "\r\n\r\n" ); // 0d 0a
 			ctx.flush();
 			
-			SSLEngine engine = SslContextFactory.getServerContext().createSSLEngine();
-			engine.setUseClientMode( false );
-			engine.setEnabledProtocols( new String[] {"TLSv1"} );
-			engine.setEnabledCipherSuites( new String[] {"SSL_RSA_WITH_RC4_128_SHA", "SSL_RSA_WITH_RC4_128_MD5"} );
-			
-			ctx.pipeline().addFirst( "ssl", new TestSslHandler( engine ) );
-			
-			// ctx.pipeline().addFirst( new Tester( "POST" ) );
-			
-			TimerTask task = new TimerTask()
+			if ( ssl )
 			{
-				@Override
-				public void run()
-				{
-					write( PING_PACKET.encode() );
-				}
-			};
-			timer.scheduleAtFixedRate( task, 23000l, 30000l );
+				SSLEngine engine = SslContextFactory.getServerContext().createSSLEngine();
+				engine.setUseClientMode( false );
+				engine.setEnabledProtocols( new String[] {"TLSv1"} );
+				engine.setEnabledCipherSuites( new String[] {"SSL_RSA_WITH_RC4_128_SHA", "SSL_RSA_WITH_RC4_128_MD5"} );
+				
+				ctx.pipeline().addFirst( "ssl", new MarchSslHandler( engine ) );
+			}
+			else
+				start( ctx );
 		}
 		else if ( obj instanceof HttpContent )
-		{
 			try
 			{
+				System.out.println( "From Client Message Received: " + obj );
+				
 				HttpContent msg = ( HttpContent ) obj;
 				ByteBuf buf = msg.content();
 				
@@ -89,99 +125,44 @@ public class Handler extends SimpleChannelInboundHandler<Object>
 					return;
 				}
 				
+				int mark = buf.readerIndex();
 				Packet[] rcvds = Packet.decode( buf );
 				
-				byte[] content = new byte[buf.readableBytes()];
-				
-				int i = 0;
-				while ( buf.readableBytes() > 0 )
-				{
-					byte b = buf.readByte();
-					content[i] = b;
-					i++;
-				}
-				
-				for ( Packet rcvd : rcvds )
-				{
-					if ( "ping".equals( rcvd.command() ) )
-					{
-						write( new Packet( "pong" ).encode() );
-					}
-					else if ( "~LGIN".equals( rcvd.command() ) )
-					{
-						// Login Command!
-						
-						Packet resp = new Packet( new byte[] {0x65}, rcvd.packetId() );
-						
-						Map<String, PayloadValue> value = Maps.newLinkedHashMap();
-						
-						value.put( "*0", new PayloadValue( "badCommand" ) );
-						
-						resp.setPayload( value );
-						
-						ByteBuf encoded = resp.encode();
-						byte[] out = new byte[encoded.writerIndex()];
-						
-						encoded.readBytes( out, 0, encoded.writerIndex() );
-						System.out.println( PacketUtils.hex2Readable( out ) );
-						
-						write( encoded );
-						
-						/*
-						 * String hex = Hex.encodeHexString( content );
-						 * String id1 = hex.substring( 34, 34 + 22 );
-						 * String id2 = hex.substring( 94, 94 + 24 );
-						 * 
-						 * String response = "010072006e0000000b03060165" + id1 +
-						 * "060b6c6f67696e506172616d73090a4173736f63417272617906082a64656661756c7402061b64656661756c7441757468656e7469636174696f6e4d6574686f6406054d61726368060c7761726e496e6163746976650806042a656e640a01002a00260000000b03060165"
-						 * + id2 + "0d61757468656e74696361746f7206054d61726368";
-						 * 
-						 * System.out.println( "SENT: " + response );
-						 * System.out.println( "ID1: " + id1 );
-						 * System.out.println( "ID2: " + id2 );
-						 * 
-						 * writeHex( response );
-						 */
-					}
-					else
-					{
-						System.out.println( "WARNING: The last packet was not understood" );
-					}
-				}
-				
-				context.flush();
+				if ( rcvds.length > 0 )
+					bus.handle( rcvds );
+				else
+					bus.incoming( buf.copy( mark, buf.readerIndex() - mark ) );
 			}
 			catch ( PacketException e )
 			{
 				System.out.println( e.hexDump() );
 				throw e;
 			}
+		else
+			System.out.println( "Received an unknown packet type: " + obj );
+	}
+	
+	public void start( ChannelHandlerContext ctx )
+	{
+		bus = new ServerMessageBus( ssl, url, ctx );
+		
+		bus.start0();
+		bus.startPinger();
+	}
+	
+	@Override
+	public void userEventTriggered( ChannelHandlerContext ctx, Object evt )
+	{
+		if ( evt instanceof SslHandshakeCompletionEvent )
+		{
+			SslHandshakeCompletionEvent event = ( SslHandshakeCompletionEvent ) evt;
+			if ( event.isSuccess() )
+				start( ctx );
+			else
+			{
+				System.err.println( "SSL Handshake Failed!" );
+				ctx.close();
+			}
 		}
-	}
-	
-	public void writeHex( String s ) throws DecoderException
-	{
-		write( ArrayUtils.addAll( Hex.decodeHex( s.replaceAll( " ", "" ).toCharArray() ) ) );
-	}
-	
-	public void write( ByteBuf msg )
-	{
-		context.write( msg );
-	}
-	
-	public void write( byte[] msg )
-	{
-		context.write( Unpooled.copiedBuffer( msg ) );
-	}
-	
-	public void write( String msg )
-	{
-		context.write( msg );
-	}
-	
-	public void log( String... msgs )
-	{
-		for ( String msg : msgs )
-			System.out.println( msg );
 	}
 }

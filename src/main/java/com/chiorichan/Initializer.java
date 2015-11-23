@@ -18,6 +18,13 @@ import io.netty.handler.logging.LoggingHandler;
  */
 public class Initializer extends ChannelInitializer<SocketChannel>
 {
+	private boolean ssl;
+	
+	public Initializer( boolean ssl )
+	{
+		this.ssl = ssl;
+	}
+	
 	@Override
 	protected void initChannel( SocketChannel ch ) throws Exception
 	{
@@ -28,6 +35,6 @@ public class Initializer extends ChannelInitializer<SocketChannel>
 		
 		p.addLast( new LoggingHandler( LogLevel.INFO ) );
 		
-		p.addLast( "handler", new Handler() );
+		p.addLast( "handler", new Handler( ssl ) );
 	}
 }

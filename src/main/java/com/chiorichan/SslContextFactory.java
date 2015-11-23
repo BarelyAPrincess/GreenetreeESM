@@ -21,7 +21,7 @@ import org.apache.commons.codec.binary.Base64;
  */
 public class SslContextFactory
 {
-	private static final String PROTOCOL = "TLS";
+	// private static final String PROTOCOL = "TLS";
 	private static final SSLContext SERVER_CONTEXT;
 	
 	static

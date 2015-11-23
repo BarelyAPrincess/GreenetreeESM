@@ -14,14 +14,6 @@ import io.netty.channel.socket.nio.NioServerSocketChannel;
 
 import java.net.InetSocketAddress;
 
-import org.apache.commons.codec.binary.Hex;
-
-import com.chiorichan.packet.Packet;
-
-/**
- * @author Chiori Greene
- * @email chiorigreene@gmail.com
- */
 public class Main
 {
 	public static EventLoopGroup bossGroup = new NioEventLoopGroup( 1 );
@@ -29,12 +21,67 @@ public class Main
 	
 	public static void main( String... args )
 	{
-		ServerBootstrap b = new ServerBootstrap();
-		b.group( bossGroup, workerGroup ).channel( NioServerSocketChannel.class ).childHandler( new Initializer() );
+		new Thread()
+		{
+			@Override
+			public void run()
+			{
+				// Secure 4443
+				ServerBootstrap secure = new ServerBootstrap();
+				secure.group( bossGroup, workerGroup ).channel( NioServerSocketChannel.class ).childHandler( new Initializer( true ) );
+				
+				try
+				{
+					final Channel ch = secure.bind( new InetSocketAddress( 4443 ) ).sync().channel();
+					ch.closeFuture().sync();
+				}
+				catch ( InterruptedException e )
+				{
+					e.printStackTrace();
+				}
+				finally
+				{
+					bossGroup.shutdownGracefully();
+					workerGroup.shutdownGracefully();
+				}
+			}
+		}.start();
+		
+		/*
+		new Thread()
+		{
+			@Override
+			public void run()
+			{
+				// Unsecure 8080
+				ServerBootstrap unsecure = new ServerBootstrap();
+				unsecure.group( bossGroup, workerGroup ).channel( NioServerSocketChannel.class ).childHandler( new Initializer( false ) );
+				
+				try
+				{
+					final Channel ch = unsecure.bind( new InetSocketAddress( 8080 ) ).sync().channel();
+					ch.closeFuture().sync();
+				}
+				catch ( InterruptedException e )
+				{
+					e.printStackTrace();
+				}
+				finally
+				{
+					bossGroup.shutdownGracefully();
+					workerGroup.shutdownGracefully();
+				}
+			}
+		}.start();
+		*/
+		
+		// DVR 2804
+		ServerBootstrap dvr = new ServerBootstrap();
+		dvr.group( bossGroup, workerGroup ).channel( NioServerSocketChannel.class ).childHandler( new Initializer( true ) );
 		
 		try
 		{
-			final Channel ch = b.bind( new InetSocketAddress( 4443 ) ).sync().channel();
+			final Channel ch = dvr.bind( new InetSocketAddress( 2804 ) ).sync().channel();
 			ch.closeFuture().sync();
 		}
 		catch ( InterruptedException e )

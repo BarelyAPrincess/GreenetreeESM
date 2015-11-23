@@ -2,7 +2,7 @@
 S1 L1   L2   XX     DT DL CS CL CD - ~LGIN IS ID               PT PL EV EV
 01 001a 0016 000000 0b 03 06 05 7e4c47494e 03 00000000004c9cc1 0b 02 02 02 -- Login Detail Request
 
-S1 L1   L2   XX     DT DL CS CL CD - ?     IS ID               PT PL KS ML VU - loginParams       KT ML VU - AssocArray      KS ML VU - *default    EV KS ML VU - defaultAuthenticationMethod                       KS ML VU - March KS ML VU - warnInactive        BV KS ML VU - *end
+S1 L1   L2   XX     DT DL CS CL CD - ?     IS ID               PT PL KS ML VU - loginParams       KT ML VU - AssocArray      KS ML VU - *default    EV KS ML VU - defaultAuthenticationMethod                       KS ML VU - March KS ML VU - warnInactive        BV KS ML VU- *end XX
 01 0072 006e 000000 0b 03 06 01 65         03 00000000004c9cc1 0b 02 06 0b 6c6f67696e506172616d73 09 0a 4173736f634172726179 06 08 2a64656661756c74 02 06 1b 64656661756c7441757468656e7469636174696f6e4d6574686f64 06 05 4d61726368 06 0c 7761726e496e616374697665 08 06 04 2a656e64 0a
 
 S1 L1   L2   XX     DT DL CS CL CD - ~LGIN IS ID               PT PL KS ML VU - admin EV
@@ -14,9 +14,29 @@ S1 L1   L2   XX     DT DL CS CL CD - ?     IS ID               PT PL KS ML VU - 
 S1 L1   L2   XX     DT DL CS CL CD - ~LGIN IS ID               PT PL KS ML VU - admin KS KL VU - (encoded value?)                    KS KL VU - (encoded value?)
 01 004b 0047 000000 0b 03 06 05 7e4c47494e 03 0000000000c49ec0 0b 03 06 05 61646d696e 06 14 a3902f220b1655c6449ef7d0423223308cdfaf86 06 14 f16391113b195e4f5556a7171e11816533d3053c
 
-S1 L1   L2   XX     DT DL CS CL CD - ?     IS ID               PT PL KS ML VU - admin KS KL VU - (encoded value?)                    KS KL VU - (encoded value?)
-01 0043 003f 000000 0b 03 06 01 65         03 0000000000c49ec0 0b 03 06 05 6c6f67696e 06 14 95dde11f47e8603f1fe619b2313ce3c9e743cf84 06 10 0af9f97266d1f031dd01f4e7de0b0c08 -- SUCCESS?
+S1 L1   L2   XX     DT DL CS CL CD - ?     IS ID               PT PL KS ML VU - admin KS KL VU - (encoded value?)                    KS KL VU - Encryption Seed
+01 0043 003f 000000 0b 03 06 01 65         03 0000000000c49ec0 0b 03 06 05 6c6f67696e 06 14 95dde11f47e8603f1fe619b2313ce3c9e743cf84 06 10 0af9f97266d1f031dd01f4e7de0b0c08
 01 0043 003f 000000 0b 03 06 01 65         03 0000000000c49ec0 0b 03 06 05 6c6f67696e 06 14 0210c8ad18e3e36843be0a0872ebaeadebd8ace6 06 10 0af9f97266d1f031dd01f4e7de0b0c08
+
+01 0035 0031 000000 0b 03 06 05 7e4c47494e 03 0000000000002ec0 0b 02 06 05 61646d696e 06 14 95830e4025f5155f91745db422edae352e2c14b7
+
+01 0036 0032 000000 0b 03 06 05 7e4c47494e 03 00000000000010c0 0b 02 06 06 6368696f7269 06 14 0769fdc244a8d6acf7f8cd2d5f45325a98ad715b
+
+01 001a 0016 000000 0b 03 06 01 65         03 00000000000010c0 06 06 6661696c6564
+
+C
+admin
+9e c3 f3 03 60 c5 c7 25 fd 98 11 95 db cd 9d 0d f0 d6 81 e0
+f1 63 91 11 3b 19 5e 4f 55 56 a7 17 1e 11 81 65 33 d3 05 3c -- Another Salt?
+
+S
+login
+95 dd e1 1f 47 e8 60 3f 1f e6 19 b2 31 3c e3 c9 e7 43 cf 84
+0a f9 f9 72 66 d1 f0 31 dd 01 f4 e7 de 0b 0c 08 -- Salt?
+
+C
+admin
+ee e2 f8 7b 61 56 22 00 63 e3 2b 25 80 98 78 27 c2 f7 ee c7
 
 >>> Misc Commands and Results
 S1 L1   L2   XX     DT DL CS CL CD
@@ -29,6 +49,16 @@ S1 L1   L2   XX     DT DL CS CL CD - ?     IS ID               PT PL KS ML VU - 
    26   22          1  1  1  1  1          1  8                1  1  6 = 22
 S1 L1   L2   XX     DT DL CS CL CD - ?     IS ID               PT ML VU - failed
 01 001a 0016 000000 0b 03 06 01 65         03 0000000000c49ec0 06 06 6661696c6564 -- Failed Command
+
+
+*** DVR Commands ***
+
+S1 L1   L2   XX     DT DL CS CL CD - GAut2 IS ID               PT PL KS ML u:   KS KL VU - Chiori-chan       XX                      KS KL VU-CCP XX                        KT KL VU - AssocArray      KS KL VU - *default    EV KS KL VU - rtpDatagramSize           XX                  KS KL VU- *end XX
+01 0029 0025 000000 0b 03 06 05 4741757432 03 00000000008056c0 0b 02 06 02 753a 06 0b 4368696f72692d6368616e 01 004e004a000000 0b 03 06 03 434350 03 0000000000c056c0 0b 01 09 0a 4173736f634172726179 06 08 2a64656661756c74 02 06 0f 727470446174616772616d53697a65 03 000000000000e040 06 04 2a656e64 0a
+
+
+*** Legend ***
+
 
 *default - Default Array Value 
 *end - End of Array

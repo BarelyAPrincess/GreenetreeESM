@@ -1,0 +1,55 @@
+<-- Negociation Process -->
+
+-->	Data Destinations ( DVR -> CES Server )
+	D) Open Connection
+	D) GET /fwd/xdvr/xDVR HTTP/1.0
+	S) HTTP/1.0 200 OK
+	S) Content-type: application/octet-stream
+	S) \r\n\r\n
+	D) SGIA {ESM ID} {PASSWORD}
+	S) ?
+	
+
+<-- Commands -->
+
+Command		Args		HasId	HasPayload	Notes
+ping			0		no		no			Used to keep connection alive
+pong			0		no		no			Used to say connection is alive
+SGIA			2		yes		yes			Unknown Use
+	Arg1: Possibly the ESM ID for each DVR - 47 53 31 30 33 30 54 38 30 30
+	Arg2: 12 f6 9b 08 09 ad e3 06 19 25 44 6f c9 a3 71 40 23 2f a4 f8 -> 123???
+	Arg2: fa 09 fc 35 51 a7 db b4 c9 93 9a 95 fa 9d 82 c8 3d 24 8f 8d -> Another Password???
+Hex: 65		1		yes		yes			Possibly a command response from server
+	When I send a bad command I get payload "badCommand" with a keyset
+	Failed logins give payload "failed" with no keyset - This is possibly indication each response is apart of the API but of seperate subsystems, different types?
+
+
+==> outgoing.log <==
+GET /fwd/xdvr/xDVR
+HTTP/1.0
+
+HTTP/1.0 501 Not Implemented
+Date: Fri, 20 Nov 2015 18:13:40 GMT
+Content-Type: text/plain; charset=utf-8
+Content-Length: 46
+Connection: close
+
+HTTP header unrecognized: GET /fwd/xdvr/xDVR
+
+==> incoming.log <==
+HTTP/1.0 501 Not Implemented
+Date: Fri, 20 Nov 2015 18:13:40 GMT
+Content-Type: text/plain; charset=utf-8
+Content-Length: 46
+Connection: close
+
+HTTP header unrecognized: GET /fwd/xdvr/xDVR
+
+	
+<-- How To Setup a Pipeline Listener -->
+
+mkfifo pipe
+touch outgoing.log
+touch incoming.log
+tail -f outgoing.log incoming.log &
+nc -l -p 8080 < pipe | tee outgoing.log | nc esm1.greenetree.com 80 | tee pipe incoming.log
